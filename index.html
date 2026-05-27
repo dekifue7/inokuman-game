@@ -1,0 +1,2455 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="いのくまん">
+  <meta name="theme-color" content="#fff1d7">
+  <title>いのくまん コンベアキャッチ</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --shadow: 0 10px 26px rgba(0, 0, 0, 0.12);
+      --ink: #263238;
+      --muted: #607d8b;
+    }
+
+    body,
+    html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: linear-gradient(180deg, #eef7ff 0%, #fffaf0 100%);
+      color: var(--ink);
+      font-family: "Hiragino Maru Gothic ProN", "Yu Gothic", system-ui, sans-serif;
+    }
+
+    #app {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      touch-action: none;
+    }
+
+    .game-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(255,255,255,0.9) 0 8%, rgba(255,255,255,0) 25%),
+        radial-gradient(circle at 88% 18%, rgba(255,255,255,0.8) 0 7%, rgba(255,255,255,0) 24%),
+        linear-gradient(180deg, #ddf4ff 0%, #ffffff 58%, #fff1d7 100%);
+    }
+
+    .top-hud {
+      position: absolute;
+      top: env(safe-area-inset-top, 10px);
+      left: 0;
+      right: 0;
+      margin: auto;
+      z-index: 14;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+      max-width: 700px;
+      padding: 10px;
+      pointer-events: none;
+    }
+
+    .level-label {
+      padding: 10px 16px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.94);
+      color: #455a64;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      font-size: 15px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .side-hud {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .hud-card {
+      min-width: 80px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      text-align: center;
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1.15;
+      color: #455a64;
+      white-space: nowrap;
+    }
+
+    .hud-card strong {
+      display: block;
+      margin-top: 2px;
+      color: #172a35;
+      font-size: 22px;
+      line-height: 1;
+    }
+    
+    #bossHpCard {
+      border: 2px solid #d32f2f;
+      background: #ffebee;
+      color: #b71c1c;
+    }
+    .boss-hp-bar-container {
+      width: 60px;
+      height: 10px;
+      background: #ffcdd2;
+      border-radius: 5px;
+      margin-top: 4px;
+      overflow: hidden;
+    }
+    .boss-hp-fill {
+      width: 100%;
+      height: 100%;
+      background: #d32f2f;
+      transition: width 0.3s ease;
+    }
+
+    .hearts {
+      display: inline-flex;
+      justify-content: center;
+      gap: 2px;
+      margin-top: 3px;
+      color: #e53935;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .heart-empty {
+      opacity: 0.22;
+      filter: grayscale(1);
+    }
+
+    .game-stage {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      padding: calc(env(safe-area-inset-top, 10px) + 70px) 16px calc(env(safe-area-inset-bottom, 10px) + 16px) 16px;
+      gap: 16px;
+      align-items: center;
+    }
+
+    @media (orientation: portrait) {
+      .game-stage {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr auto;
+      }
+    }
+
+    @media (orientation: landscape) {
+      .game-stage {
+        grid-template-columns: 1fr min(400px, 35vw);
+        grid-template-rows: 1fr;
+        padding-top: calc(env(safe-area-inset-top, 10px) + 80px);
+      }
+    }
+
+    .lane-panel {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    .conveyor-area {
+      position: relative;
+      width: 100%;
+      height: clamp(140px, 28vh, 240px);
+      overflow: hidden;
+      border: 6px solid #5d6d7e;
+      border-radius: 30px;
+      background: linear-gradient(180deg, #76838f 0 13%, #aeb7c0 13% 87%, #76838f 87% 100%);
+      box-shadow: inset 0 0 0 5px rgba(255,255,255,0.25), 0 10px 18px rgba(0,0,0,0.14);
+      transition: height 260ms ease, max-height 260ms ease;
+    }
+
+    .conveyor-area.boss-window-open {
+      height: clamp(280px, 56vh, 480px);
+    }
+
+    .conveyor-area::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      opacity: 0.92;
+      background: repeating-linear-gradient(
+        90deg,
+        rgba(255,255,255,0.28) 0 16px,
+        rgba(255,255,255,0.05) 16px 48px
+      );
+      animation: beltMoveX 600ms linear infinite;
+    }
+
+    @keyframes beltMoveX {
+      from { background-position-x: 0; }
+      to { background-position-x: 48px; }
+    }
+
+    .catch-zone {
+      position: absolute;
+      top: 16px;
+      bottom: 16px;
+      right: 154px;
+      width: 0;
+      border-left: 5px dashed rgba(38, 50, 56, 0.45);
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    .catch-dock {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 130px;
+      height: 100px;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.35);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.4);
+      pointer-events: none;
+    }
+
+    .active-catch-box {
+      position: relative;
+      width: 120px;
+      height: 90px;
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: contain;
+      filter: drop-shadow(0 7px 4px rgba(0,0,0,0.16));
+      transition: transform 120ms ease, filter 120ms ease, opacity 120ms ease;
+    }
+
+    .nono-image {
+      position: absolute;
+      bottom: calc(100% + 4px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: clamp(60px, 12vw, 80px);
+      height: auto;
+      pointer-events: none;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+      animation: nonoFloat 2s ease-in-out infinite;
+      z-index: 11;
+    }
+
+    @keyframes nonoFloat {
+      0%, 100% { transform: translate(-50%, 0); }
+      50% { transform: translate(-50%, -6px); }
+    }
+
+    .active-catch-box.empty-mode { filter: none; }
+    .active-catch-box.swap { animation: catchSwap 180ms ease-out; }
+    .active-catch-box.shock { animation: catchShock 420ms ease; }
+    .active-catch-box.success { animation: catchSuccess 350ms ease-out; }
+
+    @keyframes catchSwap {
+      0% { transform: scale(0.92); opacity: 0.7; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes catchShock {
+      0% { transform: scale(1); }
+      20% { transform: scale(1.06) rotate(-3deg); }
+      40% { transform: scale(1.03) rotate(3deg); }
+      60% { transform: scale(1.06) rotate(-2deg); }
+      100% { transform: scale(1); }
+    }
+    @keyframes catchSuccess {
+      0% { transform: translateY(0) scale(1); }
+      40% { transform: translateY(-12px) scale(1.05); }
+      70% { transform: translateY(3px) scale(0.96); }
+      100% { transform: translateY(0) scale(1); }
+    }
+
+    .ball {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 7;
+      pointer-events: none;
+      object-fit: contain;
+      filter: drop-shadow(0 6px 3px rgba(0,0,0,0.18));
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    /* ボス戦用オーバーレイ */
+    #bossOverlay {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+      border-radius: 26px;
+      background: linear-gradient(180deg, rgba(255,248,234,0.96) 0%, rgba(255,239,219,0.96) 100%);
+      backdrop-filter: blur(6px);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.55);
+    }
+    #bossOverlay[data-mode="check"] {
+      justify-content: flex-start;
+      align-items: flex-start;
+      padding: 10px;
+      background: linear-gradient(180deg, rgba(255,248,234,0.96) 0%, rgba(255,248,234,0.84) 62%, rgba(255,248,234,0) 100%);
+      pointer-events: none;
+    }
+    .boss-panel {
+      width: min(100%, 980px);
+      min-height: min(420px, 100%);
+      background: rgba(255,255,255,0.86);
+      border-radius: 28px;
+      border: 3px solid rgba(255,212,177,0.9);
+      box-shadow: 0 18px 40px rgba(99, 70, 42, 0.18);
+      padding: 18px;
+      color: #5d4037;
+      display: flex;
+      flex-direction: column;
+    }
+    #bossOverlay[data-mode="check"] .boss-panel {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 24px;
+      background: rgba(255,255,255,0.9);
+      box-shadow: 0 10px 24px rgba(99, 70, 42, 0.12);
+    }
+    .boss-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .boss-badge {
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #ffb74d 0%, #f57c00 100%);
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      box-shadow: 0 6px 14px rgba(245,124,0,0.25);
+    }
+    .boss-status-inline {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .boss-phase-chip {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #fff3e0;
+      color: #ef6c00;
+      font-size: 13px;
+      font-weight: 900;
+      border: 2px solid #ffe0b2;
+    }
+    .boss-hp-inline {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #fff8f8;
+      border: 2px solid #ffcdd2;
+      color: #c62828;
+      font-size: 13px;
+      font-weight: 900;
+    }
+    .boss-panel-hp-bar {
+      width: clamp(100px, 18vw, 160px);
+      height: 14px;
+      background: #ffcdd2;
+      border-radius: 999px;
+      overflow: hidden;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.08);
+    }
+    .boss-main {
+      display: grid;
+      grid-template-columns: minmax(180px, 220px) 1fr;
+      gap: 16px;
+      align-items: stretch;
+      flex: 1;
+      min-height: 0;
+    }
+    #bossOverlay[data-mode="check"] .boss-main {
+      grid-template-columns: minmax(110px, 140px) 1fr;
+      gap: 12px;
+    }
+    .boss-character-box {
+      background: linear-gradient(180deg, #fffdf6 0%, #fff3e0 100%);
+      border-radius: 22px;
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #ffe0b2;
+      min-height: 100%;
+    }
+    #bossOverlay[data-mode="check"] .boss-character-box {
+      padding: 10px 8px;
+      border-radius: 18px;
+    }
+    .boss-image-large {
+      width: clamp(96px, 16vw, 150px);
+      margin-bottom: 10px;
+      animation: floatBoss 2s ease-in-out infinite;
+      filter: drop-shadow(0 10px 10px rgba(0,0,0,0.18));
+    }
+    #bossOverlay[data-mode="check"] .boss-image-large {
+      width: clamp(68px, 10vw, 92px);
+      margin-bottom: 6px;
+    }
+    @keyframes floatBoss {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    .boss-speech {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 18px;
+      background: #ffffff;
+      color: #6d4c41;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.5;
+      text-align: center;
+      border: 2px solid #ffe0b2;
+      box-shadow: 0 6px 12px rgba(0,0,0,0.06);
+    }
+    #bossOverlay[data-mode="check"] .boss-speech {
+      font-size: 11px;
+      padding: 8px 10px;
+      border-radius: 14px;
+    }
+    .boss-memory-box {
+      background: linear-gradient(180deg, #ffffff 0%, #fffaf2 100%);
+      border-radius: 22px;
+      padding: 16px;
+      border: 2px solid #ffe0b2;
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+    }
+    #bossOverlay[data-mode="check"] .boss-memory-box {
+      padding: 12px;
+      border-radius: 18px;
+      min-height: auto;
+    }
+    .boss-instruction {
+      font-size: clamp(18px, 3vw, 26px);
+      font-weight: 900;
+      margin-bottom: 12px;
+      color: #5d4037;
+      text-align: center;
+      line-height: 1.4;
+    }
+    #bossOverlay[data-mode="check"] .boss-instruction {
+      font-size: clamp(14px, 2.4vw, 18px);
+      margin-bottom: 8px;
+    }
+    .boss-timer-wrap {
+      width: 100%;
+      height: 12px;
+      background: #ffe0b2;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+    .boss-timer-bar {
+      width: 100%;
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #ffd54f 0%, #ff8f00 100%);
+      transform-origin: left center;
+    }
+    .boss-order-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
+      gap: 12px;
+      justify-content: center;
+    }
+    #bossOverlay[data-mode="check"] .boss-order-container {
+      gap: 8px;
+    }
+    .order-item {
+      min-height: 96px;
+      background: rgba(255,255,255,0.96);
+      border-radius: 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 8px;
+      color: #5d4037;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+      border: 2px solid #ffe0b2;
+      text-align: center;
+    }
+    .order-item.is-empty {
+      border-style: dashed;
+      background: #fffdf8;
+      color: #b0bec5;
+    }
+    .order-item.is-filled {
+      background: #fff8f8;
+      border-color: #f8bbd0;
+    }
+    .order-step-num {
+      font-size: 12px;
+      font-weight: 900;
+      color: #8d6e63;
+      line-height: 1;
+    }
+    .order-item img {
+      width: clamp(40px, 7vw, 52px);
+      height: clamp(40px, 7vw, 52px);
+      object-fit: contain;
+    }
+    .order-placeholder {
+      font-size: 28px;
+      line-height: 1;
+      color: #b0bec5;
+      font-weight: 900;
+    }
+    .boss-input-progress {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+    .boss-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #e0e0e0;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.15);
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+    .boss-dot.done {
+      background: #ffb74d;
+    }
+    .boss-dot.active {
+      transform: scale(1.25);
+      background: #ef6c00;
+    }
+    .boss-check-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+    }
+    .boss-check-card {
+      position: relative;
+      background: #fffdf9;
+      border: 2px solid #ffe0b2;
+      border-radius: 18px;
+      padding: 10px;
+      box-shadow: 0 6px 14px rgba(0,0,0,0.06);
+      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+    }
+    .boss-check-card.active {
+      border-color: #ffb300;
+      background: #fff8e1;
+      transform: translateY(-3px);
+      box-shadow: 0 10px 18px rgba(255,179,0,0.22);
+    }
+    .boss-check-card.correct {
+      border-color: #66bb6a;
+      background: #f1fff1;
+    }
+    .boss-check-card.wrong {
+      border-color: #ef5350;
+      background: #fff3f3;
+    }
+    .boss-check-mark {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 900;
+      color: #ffffff;
+      opacity: 0;
+      transform: scale(0.5);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .boss-check-card.resolved .boss-check-mark {
+      opacity: 1;
+      transform: scale(1);
+    }
+    .boss-check-card.correct .boss-check-mark {
+      background: #43a047;
+    }
+    .boss-check-card.wrong .boss-check-mark {
+      background: #e53935;
+    }
+    .boss-check-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .boss-check-label {
+      font-size: 11px;
+      font-weight: 900;
+      color: #8d6e63;
+      white-space: nowrap;
+    }
+    .boss-check-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05);
+    }
+    .boss-check-icon img {
+      width: 34px;
+      height: 34px;
+      object-fit: contain;
+    }
+    @media (max-width: 680px) {
+      .boss-main {
+        grid-template-columns: 1fr;
+      }
+      #bossOverlay[data-mode="check"] .boss-main {
+        grid-template-columns: 1fr;
+      }
+      .boss-character-box {
+        padding: 12px;
+      }
+      .boss-order-container {
+        grid-template-columns: repeat(auto-fit, minmax(68px, 1fr));
+      }
+      .boss-check-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    .control-panel {
+      position: relative;
+      z-index: 60;
+      display: grid;
+      grid-template-rows: auto auto;
+      gap: 16px;
+      align-content: center;
+      pointer-events: none;
+      width: 100%;
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    .selector-card,
+    .info-card {
+      background: rgba(255,255,255,0.9);
+      border-radius: 28px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      padding: 16px;
+      pointer-events: auto;
+    }
+
+    .selector-title {
+      font-size: 18px;
+      font-weight: 900;
+      color: #546e7a;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    .flick-guide {
+      display: grid;
+      grid-template-columns: repeat(3, min(24vw, 86px));
+      grid-template-rows: repeat(3, min(24vw, 86px));
+      gap: 10px;
+      justify-content: center;
+      align-content: center;
+    }
+
+    .guide-item {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      transition: all 0.15s ease;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+      cursor: pointer;
+      pointer-events: auto;
+    }
+    
+    .guide-item:active { transform: scale(0.9); }
+
+    .guide-center { grid-column: 2; grid-row: 2; background: #cfd8dc; border-radius: 20px; }
+    .guide-up     { grid-column: 2; grid-row: 1; background: #fff59d; }
+    .guide-left   { grid-column: 1; grid-row: 2; background: #90caf9; }
+    .guide-right  { grid-column: 3; grid-row: 2; background: #f48fb1; }
+    .guide-down   { grid-column: 2; grid-row: 3; background: #a5d6a7; }
+
+    .guide-item.active {
+      transform: scale(1.12);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+    }
+    .guide-up.active { background: #fbc02d; }
+    .guide-left.active { background: #1976d2; }
+    .guide-right.active { background: #c2185b; }
+    .guide-down.active { background: #388e3c; }
+    .guide-center.active { background: #90a4ae; transform: scale(0.95); box-shadow: inset 0 4px 8px rgba(0,0,0,0.2); }
+    .guide-item.disabled { opacity: 0.15; visibility: hidden; pointer-events: none; }
+
+    .info-card {
+      text-align: center;
+      color: #546e7a;
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1.6;
+    }
+
+    .effect-mark {
+      position: absolute;
+      font-size: clamp(60px, 15vw, 120px);
+      font-weight: 900;
+      pointer-events: none;
+      animation: popMark 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+      z-index: 100;
+      text-align: center;
+      transform: translate(-50%, -50%);
+      text-shadow: 0 6px 12px rgba(0,0,0,0.3);
+      line-height: 1;
+    }
+    .effect-mark.success { color: #ff1744; }
+    .effect-mark.fail { color: #212121; }
+
+    @keyframes popMark {
+      0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+      30% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+      70% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+      100% { transform: translate(-50%, -60%) scale(1); opacity: 0; }
+    }
+
+    .effect-text {
+      position: absolute;
+      font-size: 28px;
+      font-weight: 900;
+      pointer-events: none;
+      animation: popUp 760ms ease-out forwards;
+      white-space: nowrap;
+      z-index: 15;
+      text-align: center;
+      transform: translate(-50%, -50%);
+    }
+
+    @keyframes popUp {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+      20% { opacity: 1; transform: translate(-50%, -65%) scale(1.1); }
+      100% { opacity: 0; transform: translate(-50%, -100%) scale(1); }
+    }
+
+    .screen {
+      position: absolute;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(255,255,255,0.93);
+      backdrop-filter: blur(6px);
+      pointer-events: auto;
+    }
+
+    .title-art-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .top-image {
+      display: block;
+      width: 90%;
+      max-width: 600px;
+      object-fit: contain;
+      user-select: none;
+      -webkit-user-drag: none;
+      filter: drop-shadow(0 10px 20px rgba(0,0,0,0.15));
+    }
+
+    .start-image-button {
+      border: none;
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
+      width: 50%;
+      max-width: 260px;
+      z-index: 2;
+      filter: drop-shadow(0 8px 16px rgba(0,0,0,0.22));
+      position: absolute;
+      left: 50%;
+      bottom: 10%;
+      transform: translateX(-50%);
+      animation: startFloat 1.35s ease-in-out infinite;
+    }
+
+    .start-image-button img {
+      display: block;
+      width: 100%;
+      height: auto;
+      user-select: none;
+      -webkit-user-drag: none;
+      animation: startPulse 1.35s ease-in-out infinite;
+    }
+
+    .start-image-button::before {
+      content: "";
+      position: absolute;
+      inset: -10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.3);
+      opacity: 0;
+      transform: scale(0.88);
+      animation: startRing 1.35s ease-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes startFloat {
+      0%, 100% { transform: translateX(-50%) translateY(0); }
+      50% { transform: translateX(-50%) translateY(-10px); }
+    }
+    @keyframes startPulse {
+      0%, 100% { transform: scale(1); filter: brightness(1); }
+      50% { transform: scale(1.05); filter: brightness(1.1); }
+    }
+    @keyframes startRing {
+      0% { opacity: 0.6; transform: scale(0.88); }
+      70%, 100% { opacity: 0; transform: scale(1.25); }
+    }
+    .start-image-button:active { animation-play-state: paused; transform: translateX(-50%) translateY(4px) scale(0.96); }
+    .start-image-button:active img { animation-play-state: paused; }
+
+    .level-select-card,
+    .result-card {
+      width: 100%;
+      max-width: 760px;
+      border-radius: 32px;
+      background: #ffffff;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.18);
+      padding: 30px 20px;
+    }
+
+    .level-select-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .mondai-image {
+      display: block;
+      width: 100%;
+      max-width: 600px;
+      height: auto;
+      object-fit: contain;
+      user-select: none;
+      -webkit-user-drag: none;
+      filter: drop-shadow(0 6px 12px rgba(0,0,0,0.15));
+      margin-bottom: 10px;
+    }
+
+    .level-buttons {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      width: 100%;
+      max-width: 600px;
+    }
+
+    @media (min-width: 600px) {
+      .level-buttons {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    .level-button,
+    button.menu-button {
+      border: none;
+      border-radius: 20px;
+      padding: 16px 10px;
+      background: #2e7d32;
+      box-shadow: 0 6px 0 #1b5e20;
+      color: #ffffff;
+      font-size: clamp(16px, 4vw, 20px);
+      font-weight: 900;
+      cursor: pointer;
+      min-height: 70px;
+      transition: transform 0.1s, box-shadow 0.1s, filter 0.1s;
+    }
+    .level-button:hover, button.menu-button:hover { filter: brightness(1.05); }
+    .level-button:active, button.menu-button:active { transform: translateY(6px); box-shadow: 0 0 0 #1b5e20; }
+
+    .challenge-button { background: #f57c00; box-shadow: 0 6px 0 #e65100; }
+    .challenge-button:active { box-shadow: 0 0 0 #e65100; }
+
+    .special-button {
+      background: linear-gradient(135deg, #ff5252, #e040fb, #448aff, #69f0ae, #ffd740);
+      background-size: 300% 300%;
+      animation: rainbow 4s ease infinite;
+      box-shadow: 0 6px 0 #7b1fa2;
+      color: #fff;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
+    }
+    .special-button:active { box-shadow: 0 0 0 #7b1fa2; }
+    @keyframes rainbow {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .result-card { max-width: 560px; text-align: center; }
+    .result-image {
+      display: block;
+      width: 100%;
+      max-width: 400px;
+      height: auto;
+      margin: 0 auto 20px;
+      object-fit: contain;
+      user-select: none;
+      -webkit-user-drag: none;
+      filter: drop-shadow(0 8px 16px rgba(0,0,0,0.15));
+    }
+    .result-stats {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 24px;
+      font-size: 20px;
+      font-weight: 900;
+      color: #455a64;
+      background: #f1f8e9;
+      padding: 16px;
+      border-radius: 20px;
+    }
+    .stat-item { display: flex; align-items: center; gap: 8px; }
+    .stat-item strong { font-size: 28px; color: #2e7d32; }
+
+    .button-row { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-top: 24px; }
+    .button-row button { flex: 1; min-width: 200px; }
+    button.secondary { background: #78909c; box-shadow: 0 6px 0 #455a64; }
+    button.secondary:active { box-shadow: 0 0 0 #455a64; }
+
+    .hidden { display: none !important; }
+
+    .control-hint {
+      position: absolute;
+      bottom: env(safe-area-inset-bottom, 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 16px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.9);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.45;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 20;
+    }
+    @media (max-width: 480px) {
+      .control-hint { font-size: 11px; padding: 8px 12px; white-space: normal; width: 90%; }
+    }
+
+    .video-card {
+      width: 100%;
+      max-width: 640px;
+      background: #ffffff;
+      border-radius: 28px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.18);
+      padding: 20px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #tutorialVideo { width: 100%; max-height: 58vh; border-radius: 16px; background: #000000; }
+    .video-message { margin: 12px 0 0; font-weight: 900; color: #546e7a; line-height: 1.5; }
+    .video-buttons { margin-top: 16px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; width: 100%; }
+    .video-buttons button { min-height: 52px; font-size: 15px; flex: 1; min-width: 160px; max-width: 240px; }
+
+    .countdown-image { width: clamp(120px, 40vw, 240px); object-fit: contain; pointer-events: none; }
+    @keyframes popCount {
+      0% { transform: scale(0.3); opacity: 0; }
+      15% { transform: scale(1.2); opacity: 1; }
+      30% { transform: scale(1); opacity: 1; }
+      80% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(0.7); opacity: 0; }
+    }
+
+    /* キャラクター演出用スタイル */
+    .character-area {
+      position: absolute;
+      left: max(20px, 8vw); 
+      bottom: max(20px, 6vh);
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      pointer-events: none;
+    }
+    .char-image { width: clamp(70px, 15vw, 100px); height: auto; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2)); transition: transform 0.2s; }
+    .kirikae-image { width: clamp(80px, 18vw, 110px); height: auto; margin-bottom: 8px; animation: popKirikae 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+    @keyframes popKirikae {
+      0% { transform: scale(0.5) translateY(20px); opacity: 0; }
+      100% { transform: scale(1) translateY(0); opacity: 1; }
+    }
+  </style>
+</head>
+
+<body>
+  <main id="app">
+    <section id="gameArea" class="game-wrap" aria-label="ゲームエリア">
+      <div class="top-hud" aria-label="ゲーム情報">
+        <div id="levelLabel" class="level-label">ステップ1</div>
+        <aside class="side-hud">
+          <div class="hud-card">スコア<strong id="scoreText">0</strong></div>
+          <div class="hud-card"><div id="heartsText" class="hearts" aria-label="残りハート">❤❤❤❤❤</div></div>
+          <!-- ボスHP表示用 -->
+          <div id="bossHpCard" class="hud-card hidden">
+            ボス
+            <div class="boss-hp-bar-container">
+              <div id="bossHpFillMain" class="boss-hp-fill"></div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <div class="game-stage">
+        <div class="lane-panel">
+          <div id="conveyorArea" class="conveyor-area">
+            <div id="catchZone" class="catch-zone" aria-hidden="true"></div>
+            <div class="catch-dock" aria-hidden="true">
+              <div id="activeCatchBox" class="active-catch-box empty-mode" style="background-image: url('images/no.png');">
+                <img src="images/nono.png" class="nono-image" alt="スルー待機">
+              </div>
+            </div>
+            
+            <!-- ボス戦時の記憶・入力用オーバーレイ -->
+            <div id="bossOverlay" class="hidden" data-mode="full">
+              <div class="boss-panel">
+                <div class="boss-topbar">
+                  <div class="boss-badge">ボスバトル</div>
+                  <div class="boss-status-inline">
+                    <div id="bossPhaseChip" class="boss-phase-chip">とうじょう</div>
+                    <div class="boss-hp-inline">
+                      <span>ボスHP</span>
+                      <div class="boss-panel-hp-bar">
+                        <div id="bossHpFillPanel" class="boss-hp-fill"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="boss-main">
+                  <div class="boss-character-box">
+                    <img id="bossImage" src="images/boss01.png" class="boss-image-large" alt="ボス">
+                    <div id="bossSpeech" class="boss-speech">ちゅうもんを おぼえてね！</div>
+                  </div>
+
+                  <div class="boss-memory-box">
+                    <div id="bossInstruction" class="boss-instruction">ボスのちゅうもん！おぼえてね！</div>
+                    <div id="bossTimerWrap" class="boss-timer-wrap hidden">
+                      <div id="bossTimerBar" class="boss-timer-bar"></div>
+                    </div>
+                    <div id="bossOrderContainer" class="boss-order-container"></div>
+                    <div id="bossInputProgress" class="boss-input-progress hidden"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="control-panel">
+          <div class="selector-card">
+            <div class="selector-title">タップ操作</div>
+            <div class="flick-guide" id="flickGuide">
+              <div class="guide-item guide-up" data-color="yellow"></div>
+              <div class="guide-item guide-left" data-color="blue"></div>
+              <div class="guide-item guide-center active"></div>
+              <div class="guide-item guide-right" data-color="pink"></div>
+              <div class="guide-item guide-down" data-color="green"></div>
+            </div>
+          </div>
+
+          <div class="info-card">
+            画面のボタンをタップして箱を切り替え。<br>
+            中央のグレーをタップするとスルー（箱なし）。<br>
+            黒い玉はスルーしよう！
+          </div>
+        </div>
+      </div>
+
+      <div id="titleScreen" class="screen">
+        <div class="title-art-wrap">
+          <img id="topImage" class="top-image" src="images/top.png" alt="トップ画像">
+          <button id="topStartButton" class="start-image-button" aria-label="スタート">
+            <img src="images/start.png" alt="スタート">
+          </button>
+        </div>
+      </div>
+
+      <div id="levelSelectScreen" class="screen hidden">
+        <div class="level-select-card">
+          <div class="level-select-layout">
+            <img class="mondai-image" src="images/mondai.png" alt="問題選択">
+            
+            <div id="stepButtons" class="level-buttons"></div>
+            <div id="challengeButtons" class="level-buttons"></div>
+            <div id="specialButtons" class="level-buttons" style="grid-template-columns: 1fr;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="resultScreen" class="screen hidden">
+        <div class="result-card">
+          <img id="resultImage" class="result-image" src="" alt="結果">
+          <div id="resultStats" class="result-stats hidden">
+            <div class="stat-item">スコア<strong id="resultScore">0</strong></div>
+            <div class="stat-item">のこり<div id="resultHearts" class="hearts"></div></div>
+          </div>
+          <div class="button-row">
+            <button id="retryButton" class="menu-button">もういちど</button>
+            <button id="backButton" class="menu-button secondary">えらびなおす</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="videoScreen" class="screen hidden">
+        <div class="video-card">
+          <video
+            id="tutorialVideo"
+            playsinline
+            webkit-playsinline
+            muted
+            controls
+            preload="auto"
+          >
+            <source src="images/step4_setumei.mp4" type="video/mp4">
+          </video>
+
+          <p id="videoMessage" class="video-message">
+            ステップ4の説明動画です
+          </p>
+
+          <div class="video-buttons">
+            <button id="playVideoButton" class="menu-button">動画を再生</button>
+            <button id="skipVideoButton" class="menu-button secondary">スキップして開始</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="countdownScreen" class="screen hidden" style="background: rgba(255,255,255,0.5); pointer-events: none;">
+        <img id="countdownImage" src="" alt="countdown" class="countdown-image">
+      </div>
+
+      <!-- チャレンジモード用キャラクター表示領域 -->
+      <div id="characterArea" class="character-area hidden">
+        <img id="kirikaeImg" src="images/kirikae.png" class="kirikae-image hidden" alt="切り替え">
+        <img id="charImg" src="images/switch01.png" class="char-image" alt="キャラクター">
+      </div>
+    </section>
+
+    <div id="controlHint" class="control-hint">
+      操作：画面のボタンをタップして箱を切り替え。中央をタップでスルー（矢印キー・スペースキーも可）。
+    </div>
+    
+    <audio id="kirikaeSound" src="sounds/kirikae.wav" preload="auto"></audio>
+    <audio id="topBgm" src="sounds/top.mp3" loop preload="auto"></audio>
+    <audio id="gameBgm" src="sounds/game.mp3" loop preload="auto"></audio>
+    <audio id="yattaSound" src="sounds/yatta.mp3" preload="auto"></audio>
+    <audio id="suruSound" src="sounds/suru.mp3" preload="auto"></audio>
+    <audio id="uwaSound" src="sounds/uwa.mp3" preload="auto"></audio>
+    <audio id="aSound" src="sounds/a.mp3" preload="auto"></audio>
+    <audio id="oiwaiSound" src="sounds/oiwai.mp3" preload="auto"></audio>
+  </main>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const appElement = document.getElementById("app");
+      const gameArea = document.getElementById("gameArea");
+      const conveyorArea = document.getElementById("conveyorArea");
+      const catchZone = document.getElementById("catchZone");
+      const activeCatchBox = document.getElementById("activeCatchBox");
+      const levelLabel = document.getElementById("levelLabel");
+      const scoreText = document.getElementById("scoreText");
+      const heartsText = document.getElementById("heartsText");
+      const bossHpCard = document.getElementById("bossHpCard");
+      const bossHpFillMain = document.getElementById("bossHpFillMain");
+      const bossHpFillPanel = document.getElementById("bossHpFillPanel");
+      const bossOverlay = document.getElementById("bossOverlay");
+      const bossImageEl = document.getElementById("bossImage");
+      const bossInstructionEl = document.getElementById("bossInstruction");
+      const bossOrderContainerEl = document.getElementById("bossOrderContainer");
+      const bossPhaseChipEl = document.getElementById("bossPhaseChip");
+      const bossSpeechEl = document.getElementById("bossSpeech");
+      const bossTimerWrapEl = document.getElementById("bossTimerWrap");
+      const bossTimerBarEl = document.getElementById("bossTimerBar");
+      const bossInputProgressEl = document.getElementById("bossInputProgress");
+      
+      const titleScreen = document.getElementById("titleScreen");
+      const levelSelectScreen = document.getElementById("levelSelectScreen");
+      const resultScreen = document.getElementById("resultScreen");
+      const resultImage = document.getElementById("resultImage");
+      const resultStats = document.getElementById("resultStats");
+      const resultScore = document.getElementById("resultScore");
+      const resultHearts = document.getElementById("resultHearts");
+      const retryButton = document.getElementById("retryButton");
+      const backButton = document.getElementById("backButton");
+      const topStartButton = document.getElementById("topStartButton");
+      const topImage = document.getElementById("topImage");
+      const videoScreen = document.getElementById("videoScreen");
+      const tutorialVideo = document.getElementById("tutorialVideo");
+      const playVideoButton = document.getElementById("playVideoButton");
+      const skipVideoButton = document.getElementById("skipVideoButton");
+      const videoMessage = document.getElementById("videoMessage");
+      const countdownScreen = document.getElementById("countdownScreen");
+      const countdownImage = document.getElementById("countdownImage");
+
+      const stepButtons = document.getElementById("stepButtons");
+      const challengeButtons = document.getElementById("challengeButtons");
+      const specialButtons = document.getElementById("specialButtons");
+
+      const characterArea = document.getElementById("characterArea");
+      const charImg = document.getElementById("charImg");
+      const kirikaeImg = document.getElementById("kirikaeImg");
+      
+      const kirikaeSound = document.getElementById("kirikaeSound");
+      const topBgm = document.getElementById("topBgm");
+      const gameBgm = document.getElementById("gameBgm");
+      const yattaSound = document.getElementById("yattaSound");
+      const suruSound = document.getElementById("suruSound");
+      const uwaSound = document.getElementById("uwaSound");
+      const aSound = document.getElementById("aSound");
+      const oiwaiSound = document.getElementById("oiwaiSound");
+
+      const levels = {
+        1: {
+          title: "ステップ1",
+          targetScore: 20,
+          maxMiss: 5,
+          ballSize: 54,
+          ballSpeed: 1.8,
+          spawnInterval: 1400,
+          colors: ["blue", "pink"]
+        },
+        2: {
+          title: "ステップ2",
+          targetScore: 25,
+          maxMiss: 5,
+          ballSize: 52,
+          ballSpeed: 1.95,
+          spawnInterval: 1300,
+          colors: ["blue", "pink", "yellow"]
+        },
+        3: {
+          title: "ステップ3",
+          targetScore: 30,
+          maxMiss: 5,
+          ballSize: 50,
+          ballSpeed: 2.1,
+          spawnInterval: 1200,
+          colors: ["blue", "pink", "yellow", "green"]
+        },
+        4: {
+          title: "ステップ4",
+          targetScore: 35,
+          maxMiss: 5,
+          ballSize: 48,
+          ballSpeed: 2.25,
+          spawnInterval: 1100,
+          colors: ["blue", "pink", "yellow", "green", "black"]
+        },
+        'c1': {
+          title: "チャレンジ1",
+          targetScore: 25,
+          maxMiss: 5,
+          ballSize: 54,
+          ballSpeed: 1.8,
+          spawnInterval: 1400,
+          colors: ["blue", "pink", "black"],
+          isChallenge: true,
+          speedUpScores: [8, 16],
+          hasBoss: true,
+          bossHp: 3,
+          bossOrderCount: 2,
+          bossShowTime: 4000,
+          bossImage: "images/boss01.png"
+        },
+        'c2': {
+          title: "チャレンジ2",
+          targetScore: 30,
+          maxMiss: 5,
+          ballSize: 52,
+          ballSpeed: 1.95,
+          spawnInterval: 1300,
+          colors: ["blue", "pink", "yellow", "black"],
+          isChallenge: true,
+          speedUpScores: [10, 20],
+          hasBoss: true,
+          bossHp: 4,
+          bossOrderCount: 3,
+          bossShowTime: 3500,
+          bossImage: "images/boss02.png"
+        },
+        'c3': {
+          title: "チャレンジ3",
+          targetScore: 35,
+          maxMiss: 5,
+          ballSize: 50,
+          ballSpeed: 2.1,
+          spawnInterval: 1200,
+          colors: ["blue", "pink", "yellow", "green", "black"],
+          isChallenge: true,
+          speedUpScores: [12, 24],
+          hasBoss: true,
+          bossHp: 5,
+          bossOrderCount: 4,
+          bossShowTime: 3000,
+          bossImage: "images/boss3.png"
+        },
+        'c4': {
+          title: "チャレンジ4",
+          targetScore: 40,
+          maxMiss: 5,
+          ballSize: 48,
+          ballSpeed: 2.25,
+          spawnInterval: 1100,
+          colors: ["blue", "pink", "yellow", "green", "black"],
+          isChallenge: true,
+          speedUpScores: [14, 28],
+          hasBoss: true,
+          bossHp: 6,
+          bossOrderCount: 4,
+          bossShowTime: 3000,
+          bossImage: "images/boss4.png"
+        },
+        'sc': {
+          title: "スペシャル",
+          targetScore: 50,
+          maxMiss: 5,
+          ballSize: 48,
+          ballSpeed: 2.25,
+          spawnInterval: 1100,
+          colors: ["blue", "pink", "yellow", "green", "black"],
+          isChallenge: true,
+          isSpecial: true,
+          speedUpScores: [12, 24, 36],
+          hasBoss: true,
+          bossHp: 7,
+          bossOrderCount: 5,
+          bossShowTime: 3000,
+          bossImage: "images/boss4.png"
+        }
+      };
+
+      const colorData = {
+        pink: {
+          label: "桃",
+          effectColor: "#d989a7",
+          imagePath: "images/pink.png",
+          catchImagePath: "images/catch_pink.png",
+          shockImagePath: "images/shock_pink.png"
+        },
+        blue: {
+          label: "青",
+          effectColor: "#69aecd",
+          imagePath: "images/blue.png",
+          catchImagePath: "images/catch_blue.png",
+          shockImagePath: "images/shock_blue.png"
+        },
+        green: {
+          label: "緑",
+          effectColor: "#7cbf8f",
+          imagePath: "images/green.png",
+          catchImagePath: "images/catch_green.png",
+          shockImagePath: "images/shock_green.png"
+        },
+        yellow: {
+          label: "黄",
+          effectColor: "#d3bd55",
+          imagePath: "images/lemon.png",
+          catchImagePath: "images/catch_lemon.png",
+          shockImagePath: "images/shock_lemon.png"
+        },
+        black: {
+          label: "黒",
+          effectColor: "#212121",
+          imagePath: "images/black.png",
+          catchImagePath: "",
+          shockImagePath: ""
+        }
+      };
+
+      let currentLevel = 1;
+      let score = 0;
+      let miss = 0;
+      let combo = 0;
+      let balls = [];
+      let selectedColor = null;
+      let isPlaying = false;
+      let animationId = null;
+      let lastTime = 0;
+      let shockTimer = null;
+      let successTimer = null;
+      let distanceSinceLastSpawn = 9999;
+      let isCountdownRunning = false;
+      let videoLoopCount = 0;
+      let speedLevel = 0; 
+
+      // ボス戦用ステート管理
+      let gameState = 'normal'; // 'normal', 'boss_intro', 'boss_memorize', 'boss_input', 'boss_check'
+      let bossMaxHp = 0;
+      let bossHp = 0;
+      let bossOrder = [];
+      let playerInput = [];
+      let bossCheckSpawnIndex = 0;
+      let bossCheckJudgeIndex = 0;
+      let bossPhaseTimer = null;
+
+      function getLevel() { return levels[currentLevel]; }
+      function getAreaRect() { return gameArea.getBoundingClientRect(); }
+      function getConveyorRect() { return conveyorArea.getBoundingClientRect(); }
+      function getLocalXFromScreenX(screenX) { return screenX - getAreaRect().left; }
+      function getLocalYFromScreenY(screenY) { return screenY - getAreaRect().top; }
+
+      function playSound(audioEl) {
+        if (!audioEl) return;
+        audioEl.currentTime = 0;
+        audioEl.play().catch(function(e) { console.warn("Audio blocked:", e); });
+      }
+
+      function playTopBgm() {
+        gameBgm.pause();
+        gameBgm.currentTime = 0;
+        topBgm.play().catch(function(e) {});
+      }
+
+      function playGameBgm() {
+        topBgm.pause();
+        topBgm.currentTime = 0;
+        gameBgm.currentTime = 0;
+        gameBgm.play().catch(function(e) {});
+      }
+
+      function stopAllBgm() {
+        topBgm.pause();
+        gameBgm.pause();
+      }
+
+      function updateHeader() {
+        const level = getLevel();
+        scoreText.textContent = String(score);
+        heartsText.innerHTML = buildHearts(level.maxMiss - miss, level.maxMiss);
+        levelLabel.textContent = level.title;
+      }
+
+      function updateBossHpBar() {
+        const percentage = bossMaxHp > 0 ? Math.max(0, (bossHp / bossMaxHp) * 100) : 0;
+        if (bossHpFillMain) bossHpFillMain.style.width = percentage + "%";
+        if (bossHpFillPanel) bossHpFillPanel.style.width = percentage + "%";
+      }
+
+      function setBossOverlayMode(mode) {
+        bossOverlay.dataset.mode = mode;
+        conveyorArea.classList.add('boss-window-open');
+      }
+
+      function setBossTexts(phase, instruction, speech) {
+        bossPhaseChipEl.textContent = phase;
+        bossInstructionEl.textContent = instruction;
+        bossSpeechEl.textContent = speech || instruction;
+      }
+
+      function createColorImageElement(color) {
+        const img = document.createElement('img');
+        img.src = color === null ? "images/no.png" : colorData[color].imagePath;
+        img.alt = color === null ? "スルー" : colorData[color].label;
+        return img;
+      }
+
+      function resetBossTimer(duration) {
+        bossTimerWrapEl.classList.remove('hidden');
+        bossTimerBarEl.style.transition = 'none';
+        bossTimerBarEl.style.width = '100%';
+        void bossTimerBarEl.offsetWidth;
+        requestAnimationFrame(function() {
+          bossTimerBarEl.style.transition = 'width ' + duration + 'ms linear';
+          bossTimerBarEl.style.width = '0%';
+        });
+      }
+
+      function renderBossInputProgress(activeIndex) {
+        bossInputProgressEl.innerHTML = '';
+        if (!bossOrder.length) {
+          bossInputProgressEl.classList.add('hidden');
+          return;
+        }
+        bossInputProgressEl.classList.remove('hidden');
+        for (let i = 0; i < bossOrder.length; i++) {
+          const dot = document.createElement('div');
+          dot.className = 'boss-dot';
+          if (i < playerInput.length) dot.classList.add('done');
+          if (i === activeIndex) dot.classList.add('active');
+          bossInputProgressEl.appendChild(dot);
+        }
+      }
+
+      function renderBossMemorizeOrder() {
+        bossOrderContainerEl.className = 'boss-order-container';
+        bossOrderContainerEl.innerHTML = '';
+        bossOrder.forEach(function(color, index) {
+          const item = document.createElement('div');
+          item.className = 'order-item';
+          const num = document.createElement('div');
+          num.className = 'order-step-num';
+          num.textContent = (index + 1) + 'ばん';
+          item.appendChild(num);
+          item.appendChild(createColorImageElement(color));
+          bossOrderContainerEl.appendChild(item);
+        });
+        renderBossInputProgress(0);
+      }
+
+      function renderBossInputSlots() {
+        bossOrderContainerEl.className = 'boss-order-container';
+        bossOrderContainerEl.innerHTML = '';
+        for (let i = 0; i < bossOrder.length; i++) {
+          const item = document.createElement('div');
+          item.className = 'order-item ' + (i < playerInput.length ? 'is-filled' : 'is-empty');
+          item.id = 'orderItem_' + i;
+          const num = document.createElement('div');
+          num.className = 'order-step-num';
+          num.textContent = (i + 1) + 'ばん';
+          item.appendChild(num);
+          if (i < playerInput.length) {
+            item.appendChild(createColorImageElement(playerInput[i]));
+          } else {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'order-placeholder';
+            placeholder.textContent = '?';
+            item.appendChild(placeholder);
+          }
+          bossOrderContainerEl.appendChild(item);
+        }
+        renderBossInputProgress(Math.min(playerInput.length, bossOrder.length - 1));
+      }
+
+      function renderBossCheckBoard() {
+        bossOrderContainerEl.className = 'boss-check-grid';
+        bossOrderContainerEl.innerHTML = '';
+        bossOrder.forEach(function(color, index) {
+          const card = document.createElement('div');
+          card.className = 'boss-check-card' + (index === 0 ? ' active' : '');
+          card.id = 'bossCheckCard_' + index;
+
+          const mark = document.createElement('div');
+          mark.className = 'boss-check-mark';
+          mark.textContent = '◯';
+          card.appendChild(mark);
+
+          const num = document.createElement('div');
+          num.className = 'order-step-num';
+          num.textContent = (index + 1) + 'ばん';
+          card.appendChild(num);
+
+          const correctRow = document.createElement('div');
+          correctRow.className = 'boss-check-row';
+          const correctLabel = document.createElement('div');
+          correctLabel.className = 'boss-check-label';
+          correctLabel.textContent = 'おてほん';
+          const correctIcon = document.createElement('div');
+          correctIcon.className = 'boss-check-icon';
+          correctIcon.appendChild(createColorImageElement(color));
+          correctRow.appendChild(correctLabel);
+          correctRow.appendChild(correctIcon);
+          card.appendChild(correctRow);
+
+          const answerRow = document.createElement('div');
+          answerRow.className = 'boss-check-row';
+          const answerLabel = document.createElement('div');
+          answerLabel.className = 'boss-check-label';
+          answerLabel.textContent = 'こたえ';
+          const answerIcon = document.createElement('div');
+          answerIcon.className = 'boss-check-icon';
+          answerIcon.appendChild(createColorImageElement(playerInput[index] ?? null));
+          answerRow.appendChild(answerLabel);
+          answerRow.appendChild(answerIcon);
+          card.appendChild(answerRow);
+
+          bossOrderContainerEl.appendChild(card);
+        });
+        bossInputProgressEl.classList.add('hidden');
+      }
+
+      function markBossCheckResult(index, isCorrect) {
+        const card = document.getElementById('bossCheckCard_' + index);
+        if (card) {
+          card.classList.remove('active');
+          card.classList.add('resolved');
+          card.classList.add(isCorrect ? 'correct' : 'wrong');
+          const mark = card.querySelector('.boss-check-mark');
+          if (mark) mark.textContent = isCorrect ? '◯' : '✕';
+        }
+        const nextCard = document.getElementById('bossCheckCard_' + (index + 1));
+        if (nextCard) nextCard.classList.add('active');
+      }
+
+      function buildHearts(remaining, max) {
+        const safeRemaining = Math.max(0, Math.min(max, remaining));
+        let html = "";
+        for (let i = 0; i < max; i += 1) {
+          html += i < safeRemaining ? "<span>❤</span>" : "<span class=\"heart-empty\">❤</span>";
+        }
+        return html;
+      }
+
+      function showTitleScreen() {
+        stopGame();
+        clearBalls();
+        pauseAndResetVideo();
+        titleScreen.classList.remove("hidden");
+        levelSelectScreen.classList.add("hidden");
+        resultScreen.classList.add("hidden");
+        videoScreen.classList.add("hidden");
+        countdownScreen.classList.add("hidden");
+        playTopBgm();
+      }
+
+      function showLevelSelectScreen() {
+        stopGame();
+        clearBalls();
+        pauseAndResetVideo();
+        titleScreen.classList.add("hidden");
+        levelSelectScreen.classList.remove("hidden");
+        resultScreen.classList.add("hidden");
+        videoScreen.classList.add("hidden");
+        countdownScreen.classList.add("hidden");
+        resetGame();
+        playTopBgm();
+      }
+
+      function buildLevelButtons() {
+        stepButtons.innerHTML = "";
+        challengeButtons.innerHTML = "";
+        specialButtons.innerHTML = "";
+
+        Object.keys(levels).forEach(function (levelKey) {
+          const levelData = levels[levelKey];
+          const button = document.createElement("button");
+          
+          if (levelData.isSpecial) {
+            button.className = "level-button special-button";
+            button.textContent = "スペシャルチャレンジ";
+            button.addEventListener("click", function () { startSequence(levelKey); });
+            specialButtons.appendChild(button);
+          } else if (levelData.isChallenge) {
+            button.className = "level-button challenge-button";
+            button.textContent = "チャレンジ" + levelKey.replace('c', '');
+            button.addEventListener("click", function () { startSequence(levelKey); });
+            challengeButtons.appendChild(button);
+          } else {
+            button.className = "level-button";
+            button.textContent = "ステップ" + levelKey;
+            button.addEventListener("click", function () { startSequence(Number(levelKey)); });
+            stepButtons.appendChild(button);
+          }
+        });
+      }
+
+      function startSequence(level) {
+        currentLevel = level;
+        resetGame();
+
+        titleScreen.classList.add("hidden");
+        levelSelectScreen.classList.add("hidden");
+        resultScreen.classList.add("hidden");
+        countdownScreen.classList.add("hidden");
+
+        if (level === 4 || level === 'c4' || level === 'sc') {
+          playTutorialVideo();
+        } else {
+          startCountdown();
+        }
+      }
+
+      function pauseAndResetVideo() {
+        tutorialVideo.pause();
+        try { tutorialVideo.currentTime = 0; } catch (error) {}
+      }
+
+      function playTutorialVideo() {
+        videoScreen.classList.remove("hidden");
+        countdownScreen.classList.add("hidden");
+        titleScreen.classList.add("hidden");
+        levelSelectScreen.classList.add("hidden");
+        resultScreen.classList.add("hidden");
+        stopAllBgm(); 
+        videoLoopCount = 0;
+
+        videoMessage.textContent = "ステップ4の説明動画です";
+        pauseAndResetVideo();
+
+        tutorialVideo.load();
+        tutorialVideo.onended = function() {
+          videoLoopCount++;
+          if (videoLoopCount >= 3) {
+            endTutorialVideo();
+          } else {
+            tutorialVideo.play().catch(function() { endTutorialVideo(); });
+          }
+        };
+
+        tutorialVideo.onerror = function () {
+          videoMessage.textContent = "動画を読み込めませんでした。スキップして開始してください。";
+        };
+
+        setTimeout(function () { startTutorialVideoPlayback(); }, 100);
+      }
+
+      function startTutorialVideoPlayback() {
+        videoMessage.textContent = "動画を再生中です";
+        const playPromise = tutorialVideo.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(function () {
+            videoMessage.textContent = "再生できない場合は「動画を再生」を押してください。";
+          });
+        }
+      }
+
+      function endTutorialVideo() {
+        pauseAndResetVideo();
+        videoScreen.classList.add("hidden");
+        startCountdown();
+      }
+
+      function startCountdown() {
+        if (isCountdownRunning) return;
+        isCountdownRunning = true;
+
+        countdownScreen.classList.remove("hidden");
+        stopAllBgm(); 
+        let count = 3;
+
+        function nextCount() {
+          if (count > 0) {
+            countdownImage.src = "images/" + count + ".png";
+            countdownImage.style.animation = "none";
+            void countdownImage.offsetWidth;
+            countdownImage.style.animation = "popCount 1s ease-out forwards";
+
+            count -= 1;
+            window.setTimeout(nextCount, 1000);
+          } else {
+            countdownScreen.classList.add("hidden");
+            isCountdownRunning = false;
+            startGame();
+          }
+        }
+        nextCount();
+      }
+
+      function updateFlickGuideUI() {
+        const colors = getLevel().colors;
+        document.querySelector(".guide-left").classList.toggle("disabled", !colors.includes("blue"));
+        document.querySelector(".guide-right").classList.toggle("disabled", !colors.includes("pink"));
+        document.querySelector(".guide-up").classList.toggle("disabled", !colors.includes("yellow"));
+        document.querySelector(".guide-down").classList.toggle("disabled", !colors.includes("green"));
+      }
+
+      function updateFlickGuideActive() {
+        document.querySelectorAll(".guide-item").forEach(function (el) { el.classList.remove("active"); });
+
+        if (selectedColor === "blue") document.querySelector(".guide-left").classList.add("active");
+        else if (selectedColor === "pink") document.querySelector(".guide-right").classList.add("active");
+        else if (selectedColor === "yellow") document.querySelector(".guide-up").classList.add("active");
+        else if (selectedColor === "green") document.querySelector(".guide-down").classList.add("active");
+        else document.querySelector(".guide-center").classList.add("active");
+      }
+
+      function updateCatchBox() {
+        if (shockTimer !== null) { clearTimeout(shockTimer); shockTimer = null; }
+        if (successTimer !== null) { clearTimeout(successTimer); successTimer = null; }
+
+        activeCatchBox.classList.remove("shock");
+        activeCatchBox.classList.remove("success");
+        activeCatchBox.classList.remove("swap");
+
+        if (selectedColor === null) {
+          activeCatchBox.style.backgroundImage = "url(\"images/no.png\")";
+          activeCatchBox.innerHTML = "<img src=\"images/nono.png\" class=\"nono-image\" alt=\"スルー待機\">";
+          activeCatchBox.classList.add("empty-mode");
+        } else {
+          activeCatchBox.innerHTML = "";
+          activeCatchBox.classList.remove("empty-mode");
+          activeCatchBox.style.backgroundImage = "url(\"" + colorData[selectedColor].catchImagePath + "\")";
+          void activeCatchBox.offsetWidth;
+          activeCatchBox.classList.add("swap");
+        }
+      }
+
+      function showShockCatchBox() {
+        if (shockTimer !== null) { clearTimeout(shockTimer); shockTimer = null; }
+        if (successTimer !== null) { clearTimeout(successTimer); successTimer = null; }
+        if (selectedColor === null) return;
+
+        activeCatchBox.style.backgroundImage = "url(\"" + colorData[selectedColor].shockImagePath + "\")";
+        activeCatchBox.classList.remove("shock", "success");
+        void activeCatchBox.offsetWidth;
+        activeCatchBox.classList.add("shock");
+
+        shockTimer = window.setTimeout(function () {
+          activeCatchBox.classList.remove("shock");
+          updateCatchBox();
+          shockTimer = null;
+        }, 420);
+      }
+
+      function showSuccessCatchBox() {
+        if (shockTimer !== null) { clearTimeout(shockTimer); shockTimer = null; updateCatchBox(); }
+        if (successTimer !== null) { clearTimeout(successTimer); successTimer = null; }
+
+        activeCatchBox.classList.remove("success");
+        void activeCatchBox.offsetWidth;
+        activeCatchBox.classList.add("success");
+
+        successTimer = window.setTimeout(function () {
+          activeCatchBox.classList.remove("success");
+          successTimer = null;
+        }, 350);
+      }
+
+      function changeSelectedColor(color) {
+        if (selectedColor === color) return;
+        selectedColor = color;
+        updateFlickGuideActive();
+        updateCatchBox();
+      }
+      
+      // ボタン＆キーボード入力の統合処理
+      function executeAction(color) {
+        if (!isPlaying) return;
+        
+        // ボス入力フェーズ中の処理
+        if (gameState === 'boss_input') {
+          if (color !== null && !getLevel().colors.includes(color)) return;
+          if (playerInput.length >= bossOrder.length) return;
+          playerInput.push(color);
+          renderBossInputSlots();
+          
+          if (playerInput.length === bossOrder.length) {
+            bossPhaseTimer = setTimeout(() => {
+              if (!isPlaying) return;
+              startBossCheck();
+            }, 500);
+          }
+          return;
+        }
+        
+        // 通常時以外の入力をブロック
+        if (gameState !== 'normal') return;
+        
+        if (color !== null) {
+          const colors = getLevel().colors;
+          if (!colors.includes(color)) return;
+        }
+        changeSelectedColor(color);
+      }
+
+      function setupTapControls() {
+        const guideUp = document.querySelector('.guide-up');
+        const guideDown = document.querySelector('.guide-down');
+        const guideLeft = document.querySelector('.guide-left');
+        const guideRight = document.querySelector('.guide-right');
+        const guideCenter = document.querySelector('.guide-center');
+
+        guideUp.addEventListener('pointerdown', function(e) { e.preventDefault(); executeAction('yellow'); });
+        guideDown.addEventListener('pointerdown', function(e) { e.preventDefault(); executeAction('green'); });
+        guideLeft.addEventListener('pointerdown', function(e) { e.preventDefault(); executeAction('blue'); });
+        guideRight.addEventListener('pointerdown', function(e) { e.preventDefault(); executeAction('pink'); });
+        guideCenter.addEventListener('pointerdown', function(e) { e.preventDefault(); executeAction(null); });
+      }
+      setupTapControls();
+
+      window.addEventListener("keydown", function (e) {
+        if (!isPlaying || e.repeat) return;
+        const colors = getLevel().colors;
+        let newColor = undefined;
+
+        if (e.key === "ArrowLeft" && colors.includes("blue")) newColor = "blue";
+        if (e.key === "ArrowRight" && colors.includes("pink")) newColor = "pink";
+        if (e.key === "ArrowUp" && colors.includes("yellow")) newColor = "yellow";
+        if (e.key === "ArrowDown" && colors.includes("green")) newColor = "green";
+        if (e.key === " " || e.key === "Enter") newColor = null;
+
+        if (newColor !== undefined) executeAction(newColor);
+      });
+
+      function clearBalls() {
+        balls.forEach(function (ball) { ball.el.remove(); });
+        balls = [];
+      }
+
+      function resetGame() {
+        score = 0;
+        miss = 0;
+        combo = 0;
+        lastTime = 0;
+        distanceSinceLastSpawn = 9999;
+        gameState = 'normal';
+        
+        bossHpCard.classList.add('hidden');
+        bossOverlay.classList.add('hidden');
+        conveyorArea.classList.remove('boss-window-open');
+        
+        speedLevel = getLevel().isSpecial ? 1 : 0;
+        
+        clearBalls();
+        changeSelectedColor(null);
+        updateFlickGuideUI();
+        updateHeader();
+
+        if (getLevel().isChallenge) {
+          characterArea.classList.remove("hidden");
+          charImg.src = "images/switch01.png";
+          kirikaeImg.classList.add("hidden");
+        } else {
+          characterArea.classList.add("hidden");
+        }
+      }
+
+      function startGame() {
+        isPlaying = true;
+        lastTime = performance.now();
+        playGameBgm(); 
+        animationId = window.requestAnimationFrame(gameLoop);
+      }
+
+      function stopGame() {
+        isPlaying = false;
+        if (animationId !== null) window.cancelAnimationFrame(animationId);
+        animationId = null;
+
+        if (shockTimer !== null) { clearTimeout(shockTimer); shockTimer = null; }
+        if (successTimer !== null) { clearTimeout(successTimer); successTimer = null; }
+        if (bossPhaseTimer !== null) { clearTimeout(bossPhaseTimer); bossPhaseTimer = null; }
+      }
+
+      function finishGame(isClear) {
+        stopGame();
+        clearBalls();
+        conveyorArea.classList.remove('boss-window-open');
+        stopAllBgm(); 
+
+        if (isClear) {
+          resultImage.src = "images/clear.png";
+          resultImage.alt = "クリア！";
+          resultScore.textContent = score;
+          resultHearts.innerHTML = buildHearts(getLevel().maxMiss - miss, getLevel().maxMiss);
+          resultStats.classList.remove("hidden");
+          playSound(oiwaiSound);
+        } else {
+          resultImage.src = "images/over.png";
+          resultImage.alt = "ゲームオーバー";
+          resultStats.classList.add("hidden");
+          playTopBgm(); 
+        }
+
+        resultScreen.classList.remove("hidden");
+      }
+      
+      // ============== ボス戦関連ロジック ==============
+      function startBossBattle() {
+        gameState = 'boss_intro';
+        clearBalls();
+        changeSelectedColor(null);
+
+        const level = getLevel();
+        bossMaxHp = level.bossHp;
+        bossHp = bossMaxHp;
+
+        if (level.bossImage) {
+          bossImageEl.src = level.bossImage;
+        }
+
+        bossHpCard.classList.remove('hidden');
+        updateBossHpBar();
+
+        setBossOverlayMode('full');
+        bossOverlay.classList.remove('hidden');
+        bossTimerWrapEl.classList.add('hidden');
+        bossInputProgressEl.classList.add('hidden');
+        bossOrderContainerEl.innerHTML = '';
+        setBossTexts('とうじょう', 'ボスが あらわれた！', 'ちゅうもんを おぼえて しょうぶ！');
+
+        playSound(uwaSound);
+
+        bossPhaseTimer = setTimeout(() => {
+          if (!isPlaying) return;
+          startBossMemorize();
+        }, 2000);
+      }
+
+      function startBossMemorize() {
+        gameState = 'boss_memorize';
+        playerInput = [];
+        bossOrder = [];
+        bossCheckSpawnIndex = 0;
+        bossCheckJudgeIndex = 0;
+
+        setBossOverlayMode('full');
+        bossOverlay.classList.remove('hidden');
+
+        const level = getLevel();
+        const numOrders = level.bossOrderCount;
+        for (let i = 0; i < numOrders; i++) {
+          bossOrder.push(randomColor());
+        }
+
+        setBossTexts('おぼえる', 'ならびを おぼえよう！', 'よーく みてね！');
+        renderBossMemorizeOrder();
+        resetBossTimer(level.bossShowTime);
+
+        bossPhaseTimer = setTimeout(() => {
+          if (!isPlaying) return;
+          startBossInput();
+        }, level.bossShowTime);
+      }
+
+      function startBossInput() {
+        gameState = 'boss_input';
+        bossTimerWrapEl.classList.add('hidden');
+        setBossOverlayMode('full');
+        setBossTexts('こたえる', 'じゅんばんどおりに えらんでね！', 'ボタンを おして こたえよう！');
+        renderBossInputSlots();
+      }
+
+      function startBossCheck() {
+        gameState = 'boss_check';
+        setBossOverlayMode('check');
+        bossOverlay.classList.remove('hidden');
+        bossTimerWrapEl.classList.add('hidden');
+        setBossTexts('かくにん', 'ベルトコンベアで こたえあわせ！', 'うまく はこづめ できるかな？');
+        renderBossCheckBoard();
+
+        const level = getLevel();
+        const speedScale = Math.max(1.0, getConveyorRect().width / 450);
+        let extraSpeed = speedLevel * 0.7;
+        distanceSinceLastSpawn = (level.ballSpeed + extraSpeed) * speedScale * 60;
+      }
+
+      function processBossDamage(isCorrect, index) {
+        markBossCheckResult(index, isCorrect);
+
+        if (isCorrect) {
+          bossHp -= 1;
+          updateBossHpBar();
+          const areaRect = getAreaRect();
+          showEffect('ボスにダメージ！', areaRect.width / 2, areaRect.height / 2, '#f44336');
+          playSound(yattaSound);
+        } else {
+          miss += 1;
+          updateHeader();
+          playSound(uwaSound);
+          if (miss >= getLevel().maxMiss) {
+            finishGame(false);
+            return;
+          }
+        }
+
+        bossCheckJudgeIndex++;
+        if (bossCheckJudgeIndex >= bossOrder.length) {
+          bossPhaseTimer = setTimeout(() => {
+            if (!isPlaying) return;
+            if (bossHp <= 0) {
+              finishGame(true);
+            } else {
+              startBossMemorize();
+            }
+          }, 1500);
+        }
+      }
+      // ================================================
+
+      function checkSpeedUp() {
+        const level = getLevel();
+        if (!level.isChallenge) return;
+        
+        if (level.isSpecial) {
+          if (speedLevel === 1 && score >= level.speedUpScores[0]) triggerSpeedUp();
+          else if (speedLevel === 2 && score >= level.speedUpScores[1]) triggerSpeedUp();
+          else if (speedLevel === 3 && score >= level.speedUpScores[2]) triggerSpeedUp();
+        } else {
+          if (speedLevel === 0 && score >= level.speedUpScores[0]) triggerSpeedUp();
+          else if (speedLevel === 1 && score >= level.speedUpScores[1]) triggerSpeedUp();
+        }
+      }
+      
+      function triggerSpeedUp() {
+        speedLevel++;
+        charImg.src = "images/switch02.png";
+        kirikaeImg.classList.remove("hidden");
+        playSound(kirikaeSound);
+        
+        const areaRect = getAreaRect();
+        showEffect("スピードアップ！！", areaRect.width / 2, areaRect.height / 2, "#f57f17");
+        
+        setTimeout(function() {
+          if (!isPlaying) return;
+          charImg.src = "images/switch01.png";
+          kirikaeImg.classList.add("hidden");
+        }, 1500);
+      }
+
+      function randomColor() {
+        const colors = getLevel().colors;
+        return colors[Math.floor(Math.random() * colors.length)];
+      }
+
+      function getCatchLocalPosition() {
+        const catchRect = catchZone.getBoundingClientRect();
+        return {
+          x: getLocalXFromScreenX(catchRect.left + catchRect.width / 2),
+          y: getLocalYFromScreenY(catchRect.top + catchRect.height / 2)
+        };
+      }
+
+      function spawnBall(size, conveyorRect, areaRect, forceColor = null, bossIdx = -1) {
+        if (!isPlaying) return;
+
+        const color = forceColor || randomColor();
+        const x = conveyorRect.left - areaRect.left - size - 10;
+        const y = conveyorRect.top - areaRect.top + conveyorRect.height / 2;
+
+        const el = document.createElement("img");
+        el.className = "ball";
+        el.src = colorData[color].imagePath;
+        el.alt = colorData[color].label + "のおまんじゅう";
+        el.draggable = false;
+        el.style.width = size + "px";
+        el.style.height = size + "px";
+        el.style.left = x + "px";
+        el.style.top = y + "px";
+        
+        gameArea.appendChild(el);
+
+        balls.push({
+          el: el,
+          color: color,
+          x: x,
+          y: y,
+          size: size,
+          judged: false,
+          bossIdx: bossIdx
+        });
+      }
+
+      function judgeBall(ball) {
+        if (ball.judged) return;
+
+        const catchPos = getCatchLocalPosition();
+
+        if (selectedColor !== null) {
+          ball.judged = true;
+
+          // ----- ボス戦用判定 -----
+          if (gameState === 'boss_check') {
+            let expectedAction = ball.color === 'black' ? null : ball.color;
+            let playerAction = playerInput[ball.bossIdx];
+            const isCorrect = playerAction === expectedAction;
+
+            if (isCorrect) {
+              showMarkEffect(true, catchPos.x, catchPos.y);
+              showSuccessCatchBox();
+              processBossDamage(true, ball.bossIdx);
+            } else {
+              showMarkEffect(false, catchPos.x, catchPos.y);
+              showShockCatchBox();
+              processBossDamage(false, ball.bossIdx);
+            }
+            ball.el.remove();
+            return;
+          }
+
+          // ----- 通常用判定 -----
+          if (ball.color === "black") {
+            score = Math.max(0, score - 2);
+            miss += 1;
+            combo = 0;
+            showShockCatchBox();
+            showMarkEffect(false, catchPos.x, catchPos.y); 
+            playSound(uwaSound); 
+            updateHeader();
+            ball.el.remove();
+
+            if (miss >= getLevel().maxMiss) finishGame(false);
+          } else if (ball.color === selectedColor) {
+            combo += 1;
+            let comboBonus = Math.floor((combo - 1) / 2);
+            let basePoints = 1 + comboBonus;
+            score += basePoints;
+
+            showMarkEffect(true, catchPos.x, catchPos.y); 
+            playSound(yattaSound); 
+            showSuccessCatchBox();
+            updateHeader();
+
+            checkSpeedUp(); 
+            
+            if (combo >= 5) showEffect("連続！+" + basePoints, catchPos.x, catchPos.y, colorData[ball.color].effectColor);
+
+            ball.el.remove();
+
+            if (score >= getLevel().targetScore) {
+              if (getLevel().hasBoss) startBossBattle();
+              else finishGame(true);
+            }
+          } else {
+            combo = 0;
+            miss += 1;
+            showShockCatchBox();
+            showMarkEffect(false, catchPos.x, catchPos.y); 
+            playSound(uwaSound); 
+            updateHeader();
+            ball.el.remove();
+
+            if (miss >= getLevel().maxMiss) finishGame(false);
+          }
+        }
+      }
+
+      function missBall(ball) {
+        if (ball.judged) return;
+
+        ball.judged = true;
+        const catchPos = getCatchLocalPosition();
+
+        // ----- ボス戦用判定 -----
+        if (gameState === 'boss_check') {
+          let expectedAction = ball.color === 'black' ? null : ball.color;
+          let playerAction = playerInput[ball.bossIdx]; 
+          
+          if (playerAction === null && expectedAction === null) {
+            showMarkEffect(true, catchPos.x + 40, catchPos.y); 
+            showSuccessCatchBox();
+            processBossDamage(true);
+          } else {
+            showMarkEffect(false, catchPos.x + 40, catchPos.y); 
+            processBossDamage(false);
+          }
+          ball.el.remove();
+          return;
+        }
+
+        // ----- 通常用判定 -----
+        if (ball.color === "black") {
+          combo += 1; 
+          showMarkEffect(true, catchPos.x + 40, catchPos.y); 
+          playSound(suruSound); 
+          showSuccessCatchBox();
+          ball.el.remove();
+        } else {
+          combo = 0;
+          miss += 1;
+          updateHeader();
+          showMarkEffect(false, catchPos.x + 40, catchPos.y); 
+          playSound(aSound); 
+          ball.el.remove();
+
+          if (miss >= getLevel().maxMiss) finishGame(false);
+        }
+      }
+
+      function showMarkEffect(isSuccess, x, y) {
+        const effect = document.createElement("div");
+        effect.className = "effect-mark " + (isSuccess ? "success" : "fail");
+        effect.textContent = isSuccess ? "◯" : "✕";
+        effect.style.left = x + "px";
+        effect.style.top = y + "px";
+        gameArea.appendChild(effect);
+        window.setTimeout(function () { effect.remove(); }, 600);
+      }
+
+      function showEffect(text, x, y, color) {
+        const effect = document.createElement("div");
+        effect.className = "effect-text";
+        effect.textContent = text;
+        effect.style.left = x + "px";
+        effect.style.top = y + "px";
+        effect.style.color = color;
+        gameArea.appendChild(effect);
+        window.setTimeout(function () { effect.remove(); }, 780);
+      }
+
+      function gameLoop(timestamp) {
+        if (!isPlaying) return;
+
+        if (!lastTime) lastTime = timestamp;
+        let delta = timestamp - lastTime;
+        if (delta > 64) delta = 16.67;
+        lastTime = timestamp;
+
+        const level = getLevel();
+        const conveyorRect = getConveyorRect();
+        const areaRect = getAreaRect();
+        const speedScale = Math.max(1.0, conveyorRect.width / 450);
+
+        let extraSpeed = 0;
+        let intervalMultiplier = 1.0;
+        if (level.isChallenge) {
+          extraSpeed = speedLevel * 0.7; 
+          intervalMultiplier = Math.pow(0.8, speedLevel); 
+        }
+
+        const currentSpeed = (level.ballSpeed + extraSpeed + Math.min(1.2, score * 0.018)) * speedScale;
+        const distanceToMove = currentSpeed * (delta / 16.67);
+
+        // --- 玉の生成制御 ---
+        if (gameState === 'normal') {
+          const currentInterval = level.spawnInterval * intervalMultiplier;
+          const targetDistance = (level.ballSpeed + extraSpeed) * speedScale * (currentInterval / 16.67);
+          distanceSinceLastSpawn += distanceToMove;
+
+          if (distanceSinceLastSpawn >= targetDistance) {
+            const size = Math.min(level.ballSize * 1.6, Math.max(45, conveyorRect.height * 0.45));
+            spawnBall(size, conveyorRect, areaRect);
+            distanceSinceLastSpawn = 0;
+          }
+        } 
+        else if (gameState === 'boss_check') {
+          if (bossCheckSpawnIndex < bossOrder.length) {
+            distanceSinceLastSpawn += distanceToMove;
+            const bossTargetDistance = currentSpeed * 60; // ボスの玉の流れる間隔
+            if (distanceSinceLastSpawn >= bossTargetDistance) {
+              const size = Math.min(level.ballSize * 1.6, Math.max(45, conveyorRect.height * 0.45));
+              spawnBall(size, conveyorRect, areaRect, bossOrder[bossCheckSpawnIndex], bossCheckSpawnIndex);
+              bossCheckSpawnIndex++;
+              distanceSinceLastSpawn = 0;
+            }
+          }
+        }
+
+        // --- 玉の移動と判定 ---
+        const catchPos = getCatchLocalPosition();
+        const passX = catchPos.x + 40;
+
+        balls.forEach(function (ball) {
+          if (ball.judged) return;
+
+          ball.x += distanceToMove;
+          ball.el.style.left = ball.x + "px";
+
+          const ballCenterX = ball.x + ball.size / 2;
+
+          // ボス戦の答え合わせ：玉が判定線に近づいたら自動で箱を切り替える
+          if (gameState === 'boss_check' && ball.bossIdx === bossCheckJudgeIndex) {
+            if (ballCenterX >= catchPos.x - 70 && ballCenterX < catchPos.x - 40) {
+              changeSelectedColor(playerInput[bossCheckJudgeIndex]);
+            }
+          }
+
+          if (ballCenterX >= catchPos.x && ballCenterX < passX) {
+            judgeBall(ball);
+          }
+
+          if (ballCenterX >= passX) {
+            missBall(ball);
+          }
+        });
+
+        balls = balls.filter(function (ball) {
+          return !ball.judged;
+        });
+
+        animationId = window.requestAnimationFrame(gameLoop);
+      }
+
+      function runTests() {
+        console.assert(levels[1].colors.includes("blue") && levels[1].colors.includes("pink"), "Level 1 should have blue and pink");
+        console.assert(levels[4].colors.includes("black"), "Level 4 should have black");
+        console.assert(topImage.getAttribute("src") === "images/top.png", "Top image should use images/top.png");
+        console.assert(Boolean(gameArea), "gameArea should exist");
+        console.assert(Boolean(catchZone), "catchZone should exist");
+        console.assert(Boolean(activeCatchBox), "activeCatchBox should exist");
+        console.assert(Boolean(heartsText), "heartsText should exist");
+        console.assert(Boolean(bossInstructionEl), "bossInstructionEl should exist");
+        console.assert(Boolean(bossOrderContainerEl), "bossOrderContainerEl should exist");
+        console.assert(Boolean(bossPhaseChipEl), "bossPhaseChipEl should exist");
+        console.assert(typeof showShockCatchBox === "function", "showShockCatchBox should exist");
+      }
+
+      topStartButton.addEventListener("click", showLevelSelectScreen);
+      retryButton.addEventListener("click", function () { startSequence(currentLevel); });
+      backButton.addEventListener("click", showLevelSelectScreen);
+      playVideoButton.addEventListener("click", startTutorialVideoPlayback);
+      skipVideoButton.addEventListener("click", endTutorialVideo);
+
+      buildLevelButtons();
+      resetGame();
+      showTitleScreen();
+      runTests();
+      
+      document.body.addEventListener("pointerdown", function() {
+        if (!isPlaying && videoScreen.classList.contains("hidden") && resultScreen.classList.contains("hidden")) {
+          topBgm.play().catch(function(){});
+        }
+      }, { once: true });
+    });
+  </script>
+</body>
+</html>
